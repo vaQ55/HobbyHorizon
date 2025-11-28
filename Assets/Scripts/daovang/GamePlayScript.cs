@@ -1,24 +1,23 @@
 ﻿using UnityEngine;
 using System.Collections;
 using UnityEngine.UI;
+
 public class GamePlayScript : MonoBehaviour {
     public static GamePlayScript instance;
-	public Text timeText, levelText, targetText, scoreText;
+    public Text timeText, levelText, targetText, scoreText;
     public Text boomText;
     public Text scoreVictoryText, scoreFailText;
-	public int score, scoreTarget;
-	private int time;
+    public int score, scoreTarget;
+    private int time;
     private float countDown;
     public GameObject panelMenu, panelVictory, panelFail, soundOnButton, soundMuteButton, musicOnButton, musicMuteButton;
     public Animator animPanelMenu, animPanelDark, animPanelPlay;
     public Button restartGame, restartFailPanel;
-	//public GameObject []levelsVang;
-	public int level;
-	public bool endgame = false;
+    public int level;
+    public bool endgame = false;
 
     public GameObject scoreTextFly, boomFly, boomObject, buttonNextLevel;
     public Transform canvas;
-
 
     public int numberBoom;
     public string itemSeclected;
@@ -31,20 +30,29 @@ public class GamePlayScript : MonoBehaviour {
     public AudioClip pressButton, explosive, lowValue, normalValue, highValue, last10S, pull, lose, win;
 
     bool victory, fail, isPause;
+
+    // NEW: count of gold collected and UI to show it
+    [HideInInspector]
+    public int goldCollected = 0; // số cục vàng đã kéo lên bờ
+    public int goldTarget = 3; // số vàng cần để thắng (mặc định 3)
+    public Text goldCountText; // kéo Text UI vào đây trong Inspector (sẽ hiển thị "0/3")
+
     // Use this for initialization
     void Start () {
-
         score = PlayerPrefs.GetInt("MaxDollar");
         scoreText.text = "$" + score;
         MakeInstance();
-		//startGame();
-		level = 0;
-		this.StartCoroutine("Do");
-        
+        level = 0;
+
+        // reset gold count khi bắt đầu level
+        goldCollected = 0;
+        UpdateGoldUI();
+
         levelText.text = "LEVEL " + CGameManager.instance.levelCurrent;
         scoreTarget = CGameManager.instance.GetScoreTarget(CGameManager.instance.levelCurrent);
         targetText.text = "$" + scoreTarget.ToString();
-        //set clock
+
+        // set clock (chỉ để hiển thị; không dùng để kết thúc game nữa)
         if (CGameManager.instance.clock)
         {
             countDown = 76;
@@ -53,15 +61,15 @@ public class GamePlayScript : MonoBehaviour {
         {
             countDown = 61;
         }
-        //sound and music
+
+        // sound and music
         SoundControl();
         MusicControl();
         SetButtonMusic();
         SetButtonSound();
-        //show menu
-        //StartCoroutine(ShowMenuPanel());
         SetNumberBoom();
     }
+
     void MakeInstance()
     {
         if (instance == null)
@@ -69,6 +77,7 @@ public class GamePlayScript : MonoBehaviour {
             instance = this;
         }
     }
+
     void Update()
     {
         if (Input.GetKey(KeyCode.Escape))
@@ -76,11 +85,12 @@ public class GamePlayScript : MonoBehaviour {
             PauseGame();
         }
 
-        
         if (score >= scoreTarget)
         {
             buttonNextLevel.SetActive(true);
         }
+
+        // update đồng hồ hiển thị (không kết thúc game khi hết thời gian)
         countDown -= UnityEngine.Time.deltaTime;
         time = (int)countDown;
         if (time > 0)
@@ -90,43 +100,23 @@ public class GamePlayScript : MonoBehaviour {
             {
                 if(victory || fail)
                 {
-
+                    // nothing
                 }
                 else
                 {
                     PlaySound(6);
                 }
-                
             }
         }
         else
         {
-            if(score >= scoreTarget)
-            {
-                if (!victory)
-                {
-                    Victory();
-                }
-                
-            }
-            else
-            {
-                if (!fail)
-                {
-                    Fail();
-                }
-
-            }
+            // Khi hết thời gian: chỉ hiển thị 0; KHÔNG gọi Victory()/Fail() nữa.
+            timeText.text = "0";
         }
-        
-        
-        //Debug.Log("Thoi gian con lai la: " + cd);
     }
+
     private void OnApplicationPause(bool pause)
     {
-
-        //isPause = pause;
-        //Debug.Log("Tam dung game: " + isPause);
         if (pause && !isPause)
         {
             if (victory && fail)
@@ -137,9 +127,9 @@ public class GamePlayScript : MonoBehaviour {
             {
                 PauseGame();
             }
-
         }
     }
+
     public void PlaySound(int i)
     {
         switch (i)
@@ -167,14 +157,14 @@ public class GamePlayScript : MonoBehaviour {
                     {
                         audioSound.PlayOneShot(pull);
                     }
-                    
-                }   
+
+                }
                 break;
             case 6:
                 if (!audioSound.isPlaying)
                 {
                     audioSound.PlayOneShot(last10S);
-                }              
+                }
                 break;
             case 7:
                 audioSound.PlayOneShot(lose);
@@ -187,6 +177,7 @@ public class GamePlayScript : MonoBehaviour {
                 break;
         }
     }
+
     public void PauseGame()
     {
         isPause = true;
@@ -197,7 +188,6 @@ public class GamePlayScript : MonoBehaviour {
         UnityEngine.Time.timeScale = 0;
         restartGame.onClick.RemoveAllListeners();
         restartGame.onClick.AddListener(() => RestartGame());
- 
     }
 
     public void ResumeGame()
@@ -209,7 +199,6 @@ public class GamePlayScript : MonoBehaviour {
         UnityEngine.Time.timeScale = 1;
         animPanelDark.SetBool("In", false);
         animPanelMenu.SetBool("Out", true);
-        //StartCoroutine(MenuPanelOnTop());
     }
 
     public void Victory()
@@ -222,7 +211,8 @@ public class GamePlayScript : MonoBehaviour {
         scoreVictoryText.text = "$" + score;
         PlayerPrefs.SetInt("MaxLevel", CGameManager.instance.levelCurrent);
         PlayerPrefs.SetInt("MaxDollar", score);
-    } 
+    }
+
     public void Fail()
     {
         audioMusic.enabled = false;
@@ -235,42 +225,48 @@ public class GamePlayScript : MonoBehaviour {
         restartFailPanel.onClick.RemoveAllListeners();
         restartFailPanel.onClick.AddListener(() => RestartGame());
     }
+
     public void RestartGame()
     {
         UnityEngine.Time.timeScale = 1;
         CGameManager.instance.powerCurrent = false;
+        // reset goldCollected nếu cần
+        goldCollected = 0;
+        PlayerPrefs.SetInt("Bomb", PlayerPrefs.GetInt("Bomb")); // giữ bomb
         Application.LoadLevel(Application.loadedLevel);
     }
+
     public void NextLevel()
     {
         CGameManager.instance.DisableItems();
-        Application.LoadLevel("Shop"); 
+        // reset gold count before leaving
+        goldCollected = 0;
+        Application.LoadLevel("Shop");
         CGameManager.instance.levelCurrent++;
     }
+
     public void NextLevelAndSave()
     {
         PlayerPrefs.SetInt("MaxLevel", CGameManager.instance.levelCurrent);
         PlayerPrefs.SetInt("MaxDollar", score);
         CGameManager.instance.DisableItems();
+        goldCollected = 0;
         Application.LoadLevel("Shop");
         CGameManager.instance.levelCurrent++;
     }
-    //IEnumerator ShowMenuPanel()
-    //{
-    //    yield return new WaitForSeconds(1f);
-    //    panelMenu.SetActive(true);
-    //}
+
     public void BackToMenu()
     {
         Application.LoadLevel("MainMenu");
     }
+
     public void Boom()
     {
         OngGiaScript.instance.DropBomb();
         itemDestroy = GameObject.Find(itemSeclected);
         Vector3 vector3 = itemDestroy.transform.localPosition;
         PlaySound(4);
-        //Debug.Log("Cai dang duoc keo la co tag la: " + itemDestroy.tag);
+
         if(itemDestroy.tag == "Gold")
         {
             fireObject = Instantiate(Resources.Load("GoldFire"), vector3, Quaternion.identity) as GameObject;
@@ -285,7 +281,7 @@ public class GamePlayScript : MonoBehaviour {
         {
             fireObject = Instantiate(Resources.Load("OtherFire"), vector3, Quaternion.identity) as GameObject;
         }
-        
+
         Destroy(itemDestroy);
         numberBoom = PlayerPrefs.GetInt("Bomb");
         numberBoom--;
@@ -295,13 +291,14 @@ public class GamePlayScript : MonoBehaviour {
         {
             LuoiCauScript.instance.speed = 4;
         }
-        //GameObject.Find("dayCau").GetComponent<DayCauScript>().typeAction = TypeAction.Nghi;
     }
+
     public void Power()
     {
         CGameManager.instance.powerCurrent = true;
         OngGiaScript.instance.Happy();
     }
+
     public void SetNumberBoom()
     {
         if (PlayerPrefs.GetInt("Bomb") > 0)
@@ -314,45 +311,7 @@ public class GamePlayScript : MonoBehaviour {
             boomObject.SetActive(false);
         }
     }
-	public IEnumerator Do ()
-	{
-		bool add = true;
-		while(add){
-			yield return new WaitForSeconds (1);
-			if(time > 0) {
-				time --;
-			}
-			if(time <= 0 && !endgame) {
-				//endGame();
-//				StopCoroutine("Do");
-			}
-		}
-	}
 
-    //void endGame() {
-    //	endgame = true;
-    //	menuEndGame.SetActive(true);
-    //	level ++;
-    //}
-
-    //void startGame()
-    //{
-    //    //menuEndGame.SetActive(false);
-    //    endgame = false;
-    //    time = 60;
-    //    score = 0;
-    //    for (int i = 0; i < levelsVang.Length; i++)
-    //    {
-    //        if (level == i)
-    //        {
-    //            levelsVang[i].SetActive(true);
-    //        }
-    //        else
-    //        {
-    //            levelsVang[i].SetActive(false);
-    //        }
-    //    }
-    //}
     public void CreateScoreFly(int score)
     {
         Vector3 vector3 = scoreTextFly.transform.position;
@@ -375,15 +334,41 @@ public class GamePlayScript : MonoBehaviour {
         Vector3 vector3 = boomFly.transform.position;
         Instantiate(boomFly, vector3, Quaternion.identity).transform.SetParent(canvas, false);
     }
-	// Update is called once per frame
-	
+
     public void SetScoreText()
     {
         scoreText.text = "$" + score.ToString();
     }
-    //public void replay() {
-    //	startGame();
-    //}
+
+    // NEW: gọi khi một cục vàng (tag = "Gold") được kéo lên bờ
+    public void OnGoldCollected()
+    {
+        goldCollected++;
+        UpdateGoldUI();
+        Debug.Log("Gold collected: " + goldCollected);
+
+        if (!victory && goldCollected >= goldTarget)
+        {
+            // bắt đầu coroutine delay 2 giây trước khi hiện Victory
+            StartCoroutine(ShowVictoryDelay());
+        }
+    }
+
+    IEnumerator ShowVictoryDelay()
+    {
+        // nếu bạn muốn delay hoạt động dù Time.timeScale = 0, dùng WaitForSecondsRealtime
+        yield return new WaitForSeconds(2f);
+        Victory();
+    }
+
+    // Cập nhật UI hiển thị số vàng thu được (ví dụ: "2/3")
+    void UpdateGoldUI()
+    {
+        if (goldCountText != null)
+        {
+            goldCountText.text = goldCollected.ToString() + "/"+ goldTarget.ToString();
+        }
+    }
 
     //Music and Sound Control
     void SoundControl()
