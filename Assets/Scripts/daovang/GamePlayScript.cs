@@ -31,38 +31,37 @@ public class GamePlayScript : MonoBehaviour {
 
     bool victory, fail, isPause;
 
-    // NEW: count of gold collected and UI to show it
     [HideInInspector]
-    public int goldCollected = 0; // số cục vàng đã kéo lên bờ
-    public int goldTarget = 3; // số vàng cần để thắng (mặc định 3)
-    public Text goldCountText; // kéo Text UI vào đây trong Inspector (sẽ hiển thị "0/3")
+    public int goldCollected = 0;
+    public int goldTarget = 3;
+    public Text goldCountText;
 
-    // Use this for initialization
+    [HideInInspector]
+    public bool pickGold = false;
+
+    [HideInInspector]
+    public int grabCount = 0;
+    public int maxGrab = 3;
+
     void Start () {
+        MakeInstance();
+
         score = PlayerPrefs.GetInt("MaxDollar");
         scoreText.text = "$" + score;
-        MakeInstance();
         level = 0;
 
-        // reset gold count khi bắt đầu level
         goldCollected = 0;
+        pickGold = false;
+        grabCount = 0;
         UpdateGoldUI();
 
         levelText.text = "LEVEL " + CGameManager.instance.levelCurrent;
         scoreTarget = CGameManager.instance.GetScoreTarget(CGameManager.instance.levelCurrent);
         targetText.text = "$" + scoreTarget.ToString();
 
-        // set clock (chỉ để hiển thị; không dùng để kết thúc game nữa)
-        if (CGameManager.instance.clock)
-        {
-            countDown = 76;
-        }
-        else
-        {
-            countDown = 61;
-        }
+        if (CGameManager.instance.clock) countDown = 76;
+        else countDown = 61;
 
-        // sound and music
         SoundControl();
         MusicControl();
         SetButtonMusic();
@@ -72,25 +71,13 @@ public class GamePlayScript : MonoBehaviour {
 
     void MakeInstance()
     {
-        if (instance == null)
-        {
-            instance = this;
-        }
+        if (instance == null) instance = this;
     }
 
     void Update()
     {
-        if (Input.GetKey(KeyCode.Escape))
-        {
-            PauseGame();
-        }
+        if (Input.GetKey(KeyCode.Escape)) PauseGame();
 
-        if (score >= scoreTarget)
-        {
-            buttonNextLevel.SetActive(true);
-        }
-
-        // update đồng hồ hiển thị (không kết thúc game khi hết thời gian)
         countDown -= UnityEngine.Time.deltaTime;
         time = (int)countDown;
         if (time > 0)
@@ -98,20 +85,8 @@ public class GamePlayScript : MonoBehaviour {
             timeText.text = time.ToString();
             if(time < 10)
             {
-                if(victory || fail)
-                {
-                    // nothing
-                }
-                else
-                {
-                    PlaySound(6);
-                }
+                if(!(victory || fail)) PlaySound(6);
             }
-        }
-        else
-        {
-            // Khi hết thời gian: chỉ hiển thị 0; KHÔNG gọi Victory()/Fail() nữa.
-            timeText.text = "0";
         }
     }
 
@@ -119,14 +94,7 @@ public class GamePlayScript : MonoBehaviour {
     {
         if (pause && !isPause)
         {
-            if (victory && fail)
-            {
-
-            }
-            else
-            {
-                PauseGame();
-            }
+            if (!(victory && fail)) PauseGame();
         }
     }
 
@@ -134,47 +102,19 @@ public class GamePlayScript : MonoBehaviour {
     {
         switch (i)
         {
-            case 1:
-                audioSound.PlayOneShot(lowValue);
-                break;
-            case 2:
-                audioSound.PlayOneShot(normalValue);
-                break;
-            case 3:
-                audioSound.PlayOneShot(highValue);
-                break;
-            case 4:
-                audioSound.PlayOneShot(explosive);
-                break;
+            case 1: audioSound.PlayOneShot(lowValue); break;
+            case 2: audioSound.PlayOneShot(normalValue); break;
+            case 3: audioSound.PlayOneShot(highValue); break;
+            case 4: audioSound.PlayOneShot(explosive); break;
             case 5:
-                if (!audioSound.isPlaying)
-                {
-                    if (victory || fail)
-                    {
-
-                    }
-                    else
-                    {
-                        audioSound.PlayOneShot(pull);
-                    }
-
-                }
+                if (!audioSound.isPlaying && !(victory || fail)) audioSound.PlayOneShot(pull);
                 break;
             case 6:
-                if (!audioSound.isPlaying)
-                {
-                    audioSound.PlayOneShot(last10S);
-                }
+                if (!audioSound.isPlaying) audioSound.PlayOneShot(last10S);
                 break;
-            case 7:
-                audioSound.PlayOneShot(lose);
-                break;
-            case 8:
-                audioSound.PlayOneShot(win);
-                break;
-            case 9:
-                audioSound.PlayOneShot(pressButton);
-                break;
+            case 7: audioSound.PlayOneShot(lose); break;
+            case 8: audioSound.PlayOneShot(win); break;
+            case 9: audioSound.PlayOneShot(pressButton); break;
         }
     }
 
@@ -195,7 +135,6 @@ public class GamePlayScript : MonoBehaviour {
         isPause = false;
         audioSound.enabled = true;
         PlaySound(9);
-
         UnityEngine.Time.timeScale = 1;
         animPanelDark.SetBool("In", false);
         animPanelMenu.SetBool("Out", true);
@@ -203,6 +142,7 @@ public class GamePlayScript : MonoBehaviour {
 
     public void Victory()
     {
+        if (victory) return;
         audioMusic.enabled = false;
         PlaySound(8);
         victory = true;
@@ -215,13 +155,13 @@ public class GamePlayScript : MonoBehaviour {
 
     public void Fail()
     {
+        if (fail) return;
         audioMusic.enabled = false;
         PlaySound(7);
         fail = true;
         UnityEngine.Time.timeScale = 0;
         panelFail.SetActive(true);
         scoreFailText.text = "$" + score;
-
         restartFailPanel.onClick.RemoveAllListeners();
         restartFailPanel.onClick.AddListener(() => RestartGame());
     }
@@ -230,17 +170,19 @@ public class GamePlayScript : MonoBehaviour {
     {
         UnityEngine.Time.timeScale = 1;
         CGameManager.instance.powerCurrent = false;
-        // reset goldCollected nếu cần
         goldCollected = 0;
-        PlayerPrefs.SetInt("Bomb", PlayerPrefs.GetInt("Bomb")); // giữ bomb
+        pickGold = false;
+        grabCount = 0;
+        PlayerPrefs.SetInt("Bomb", PlayerPrefs.GetInt("Bomb"));
         Application.LoadLevel(Application.loadedLevel);
     }
 
     public void NextLevel()
     {
         CGameManager.instance.DisableItems();
-        // reset gold count before leaving
         goldCollected = 0;
+        pickGold = false;
+        grabCount = 0;
         Application.LoadLevel("Shop");
         CGameManager.instance.levelCurrent++;
     }
@@ -251,12 +193,16 @@ public class GamePlayScript : MonoBehaviour {
         PlayerPrefs.SetInt("MaxDollar", score);
         CGameManager.instance.DisableItems();
         goldCollected = 0;
+        pickGold = false;
+        grabCount = 0;
         Application.LoadLevel("Shop");
         CGameManager.instance.levelCurrent++;
     }
 
     public void BackToMenu()
     {
+        pickGold = false;
+        grabCount = 0;
         Application.LoadLevel("MainMenu");
     }
 
@@ -340,58 +286,61 @@ public class GamePlayScript : MonoBehaviour {
         scoreText.text = "$" + score.ToString();
     }
 
-    // NEW: gọi khi một cục vàng (tag = "Gold") được kéo lên bờ
-    public void OnGoldCollected()
+    public void OnGoldCollected(int goldId = -1)
     {
         goldCollected++;
-        UpdateGoldUI();
-        Debug.Log("Gold collected: " + goldCollected);
+        grabCount++;
 
-        if (!victory && goldCollected >= goldTarget)
+        if (goldId >= 0 && GoldManager.Instance != null)
         {
-            // bắt đầu coroutine delay 2 giây trước khi hiện Victory
-            StartCoroutine(ShowVictoryDelay());
+            GoldManager.Instance.OnGoldPicked(goldId);
+        }
+
+        UpdateGoldUI();
+        Debug.Log($"Gold collected: {goldCollected} | grabCount: {grabCount} | pickGold: {pickGold}");
+
+        if (grabCount >= maxGrab)
+        {
+            EvaluatePickResult();
         }
     }
 
-    IEnumerator ShowVictoryDelay()
+    public void EvaluatePickResult(bool withDelay = true, float delaySeconds = 0.5f)
     {
-        // nếu bạn muốn delay hoạt động dù Time.timeScale = 0, dùng WaitForSecondsRealtime
-        yield return new WaitForSeconds(2f);
+        if (victory || fail) return;
+
+        if (pickGold)
+        {
+            if (withDelay) StartCoroutine(DelayedVictory(delaySeconds));
+            else Victory();
+        }
+        else
+        {
+            Fail();
+        }
+    }
+
+    IEnumerator DelayedVictory(float seconds)
+    {
+        if (seconds > 0f) yield return new WaitForSecondsRealtime(seconds);
         Victory();
     }
 
-    // Cập nhật UI hiển thị số vàng thu được (ví dụ: "2/3")
     void UpdateGoldUI()
     {
         if (goldCountText != null)
         {
-            goldCountText.text = goldCollected.ToString() + "/"+ goldTarget.ToString();
+            goldCountText.text = goldCollected.ToString() + "/" + goldTarget.ToString();
         }
     }
 
-    //Music and Sound Control
     void SoundControl()
     {
-        if (PlayerPrefs.GetInt("Sound") == 1)
-        {
-            audioSound.enabled = true;
-        }
-        else
-        {
-            audioSound.enabled = false;
-        }
+        audioSound.enabled = (PlayerPrefs.GetInt("Sound") == 1);
     }
     void MusicControl()
     {
-        if (PlayerPrefs.GetInt("Music") == 1)
-        {
-            audioMusic.enabled = true;
-        }
-        else
-        {
-            audioMusic.enabled = false;
-        }
+        audioMusic.enabled = (PlayerPrefs.GetInt("Music") == 1);
     }
     public void SetOnMusic()
     {
@@ -419,28 +368,12 @@ public class GamePlayScript : MonoBehaviour {
     }
     private void SetButtonSound()
     {
-        if (PlayerPrefs.GetInt("Sound") == 1)
-        {
-            soundOnButton.SetActive(true);
-            soundMuteButton.SetActive(false);
-        }
-        else
-        {
-            soundOnButton.SetActive(false);
-            soundMuteButton.SetActive(true);
-        }
+        if (PlayerPrefs.GetInt("Sound") == 1) { soundOnButton.SetActive(true); soundMuteButton.SetActive(false); }
+        else { soundOnButton.SetActive(false); soundMuteButton.SetActive(true); }
     }
     private void SetButtonMusic()
     {
-        if (PlayerPrefs.GetInt("Music") == 1)
-        {
-            musicOnButton.SetActive(true);
-            musicMuteButton.SetActive(false);
-        }
-        else
-        {
-            musicMuteButton.SetActive(true);
-            musicOnButton.SetActive(false);
-        }
+        if (PlayerPrefs.GetInt("Music") == 1) { musicOnButton.SetActive(true); musicMuteButton.SetActive(false); }
+        else { musicMuteButton.SetActive(true); musicOnButton.SetActive(false); }
     }
 }

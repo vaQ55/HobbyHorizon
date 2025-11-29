@@ -1,9 +1,9 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;   // <--- THÊM DÒNG NÀY
 
 public class MainMenuController : MonoBehaviour {
-
 
     public GameObject buttonContinue, soundOnButton, soundMuteButton, musicOnButton, musicMuteButton;
     public Animator animPanelSetting;
@@ -11,17 +11,15 @@ public class MainMenuController : MonoBehaviour {
     public AudioSource audioSound;
 
     public AudioClip pressButton;
-    // toast and double click exit game
+
     bool doubleBackToExitPressedOnce = false;
     string toastString;
-    string input;
     AndroidJavaObject currentActivity;
     AndroidJavaClass UnityPlayer;
     AndroidJavaObject context;
 
-    // Use this for initialization
     void Start () {
-        UnityEngine.Time.timeScale = 1;
+        Time.timeScale = 1;
         CGameManager.instance.DisableItems();
 
         SoundControl();
@@ -29,14 +27,7 @@ public class MainMenuController : MonoBehaviour {
         SetButtonMusic();
         SetButtonSound();
 
-        if (PlayerPrefs.GetInt("MaxLevel") != 0)
-        {
-            buttonContinue.SetActive(true);
-        }
-        else
-        {
-            buttonContinue.SetActive(false);
-        }
+        buttonContinue.SetActive(PlayerPrefs.GetInt("MaxLevel") != 0);
 
         if (Application.platform == RuntimePlatform.Android)
         {
@@ -46,13 +37,7 @@ public class MainMenuController : MonoBehaviour {
         }
     }
 	
-	// Update is called once per frame
 	void Update () {
-        //if (Input.GetKey(KeyCode.Escape))
-        //{
-        //    Application.Quit();
-        //}
-
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             if (doubleBackToExitPressedOnce)
@@ -62,17 +47,15 @@ public class MainMenuController : MonoBehaviour {
             doubleBackToExitPressedOnce = true;
 
             showToastOnUiThread("Please click BACK again to exit");
-
             StartCoroutine(DoubleClickExit());
-
         }
     }
+
     IEnumerator DoubleClickExit()
     {
         yield return new WaitForSeconds(1.5f);
         doubleBackToExitPressedOnce = false;
     }
-
 
     public void showToastOnUiThread(string toastString)
     {
@@ -89,6 +72,7 @@ public class MainMenuController : MonoBehaviour {
         AndroidJavaObject toast = Toast.CallStatic<AndroidJavaObject>("makeText", context, javaString, Toast.GetStatic<int>("LENGTH_SHORT"));
         toast.Call("show");
     }
+
     public void Play()
     {
         audioSound.PlayOneShot(pressButton);
@@ -96,13 +80,16 @@ public class MainMenuController : MonoBehaviour {
         PlayerPrefs.SetInt("Bomb", 0);
         PlayerPrefs.SetInt("MaxLevel", 0);
         PlayerPrefs.SetInt("MaxDollar", 0);
-        Application.LoadLevel("NextLevel");
-        
+
+        // ---- FIXED ----
+        SceneManager.LoadScene("NextLevel", LoadSceneMode.Single);
     }
+
     public void PlayContinue()
     {
         audioSound.PlayOneShot(pressButton);
         int maxLevel = PlayerPrefs.GetInt("MaxLevel");
+
         if(maxLevel == 0)
         {
             CGameManager.instance.levelCurrent = 1;
@@ -111,7 +98,9 @@ public class MainMenuController : MonoBehaviour {
         else
         {
             CGameManager.instance.levelCurrent = maxLevel + 1;
-            Application.LoadLevel("Shop");
+
+            // ---- FIXED ----
+            SceneManager.LoadScene("Shop", LoadSceneMode.Single);
         }
     }
     
@@ -126,28 +115,16 @@ public class MainMenuController : MonoBehaviour {
         audioSound.PlayOneShot(pressButton);
         animPanelSetting.SetBool("Out", true);
     }
+
     void SoundControl()
     {
-        if (PlayerPrefs.GetInt("Sound") == 1)
-        {
-            audioSound.enabled = true;
-        }
-        else
-        {
-            audioSound.enabled = false;
-        }
+        audioSound.enabled = PlayerPrefs.GetInt("Sound") == 1;
     }
     void MusicControl()
     {
-        if (PlayerPrefs.GetInt("Music") == 1)
-        {
-            audioMusic.enabled = true;
-        }
-        else
-        {
-            audioMusic.enabled = false;
-        }
+        audioMusic.enabled = PlayerPrefs.GetInt("Music") == 1;
     }
+
     public void SetOnMusic()
     {
         PlayerPrefs.SetInt("Music", 1);
@@ -172,30 +149,18 @@ public class MainMenuController : MonoBehaviour {
         SetButtonSound();
         SoundControl();
     }
+
     private void SetButtonSound()
     {
-        if (PlayerPrefs.GetInt("Sound") == 1)
-        {
-            soundOnButton.SetActive(true);
-            soundMuteButton.SetActive(false);
-        }
-        else
-        {
-            soundOnButton.SetActive(false);
-            soundMuteButton.SetActive(true);
-        }
+        bool on = PlayerPrefs.GetInt("Sound") == 1;
+        soundOnButton.SetActive(on);
+        soundMuteButton.SetActive(!on);
     }
+
     private void SetButtonMusic()
     {
-        if (PlayerPrefs.GetInt("Music") == 1)
-        {
-            musicOnButton.SetActive(true);
-            musicMuteButton.SetActive(false);
-        }
-        else
-        {
-            musicMuteButton.SetActive(true);
-            musicOnButton.SetActive(false);
-        }
+        bool on = PlayerPrefs.GetInt("Music") == 1;
+        musicOnButton.SetActive(on);
+        musicMuteButton.SetActive(!on);
     }
 }
