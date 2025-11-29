@@ -6,7 +6,7 @@ public class OngGiaScript : MonoBehaviour {
     public static OngGiaScript instance;
     private Animator anim;
 
-    private GameObject halo;
+    // private GameObject halo;
     Vector3 position;
 	// Use this for initialization
 	void Start () {
@@ -62,14 +62,14 @@ public class OngGiaScript : MonoBehaviour {
     {
         anim.SetBool("Happy", true);
         StartCoroutine(StopHappy());
-        halo = Instantiate(Resources.Load("Halo"), position, Quaternion.identity) as GameObject;
+        // halo = Instantiate(Resources.Load("Halo"), position, Quaternion.identity) as GameObject;
     }
 
     IEnumerator StopHappy()
     {
         yield return new WaitForSeconds(1f);
         anim.SetBool("Happy", false);
-        Destroy(halo);
+        // Destroy(halo);
     }
 
     public void Angry()

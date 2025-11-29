@@ -4,8 +4,6 @@ using UnityEngine.Events;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-
-// Giải quyết xung đột Random (UnityEngine.Random vs System.Random)
 using Random = UnityEngine.Random;
 
 public class GoldManager : MonoBehaviour
@@ -43,31 +41,25 @@ public class GoldManager : MonoBehaviour
     public int luot1 = 0;
     public int luot2 = 0;
 
-    // NEW: flags that indicate "destroyed" events for picked golds.
-    [Header("Flags được bật khi các pickedGold bị destroy (VictoryController có thể đọc)")]
-    [Tooltip("True khi pickedGold1 bị destroy (hoặc bị nhặt) — VictoryController có thể bật object tương ứng).")]
+    [Header("Flags được bật khi các pickedGold bị destroy")]
     public bool picked1DestroyedFlag = false;
-    [Tooltip("True khi pickedGold2 bị destroy (hoặc bị nhặt)")]
     public bool picked2DestroyedFlag = false;
-    [Tooltip("True khi pickedGold3 bị destroy (hoặc bị nhặt)")]
     public bool picked3DestroyedFlag = false;
 
-    // NOTE: Không giữ các victoryObject ở đây nữa.
-    // VictoryController sẽ quản lý việc bật/tắt các object.
-
-    // NEW: Event thông báo pick special gold (parameter = pickIndex: 1/2/3)
     [Tooltip("Invoked with parameter = pickIndex (1,2,3) when special gold is picked.")]
     public UnityEventInt OnSpecialGoldPickedEvent = new UnityEventInt();
 
-    // C# event để code subscribe nếu cần
     public event Action<int> OnSpecialGoldPicked;
+
+    // ===== FIX: TRACK SPAWNED PREFABS =====
+    [Header("Debug: Spawned Prefabs (Auto-managed)")]
+    [SerializeField] private List<GameObject> spawnedPrefabs = new List<GameObject>();
 
     private Dictionary<int, int> idToPickIndex = new Dictionary<int, int>();
     private int nextID = 1;
     private const string PREF_KEY_LUOT1 = "GoldManager_luot1";
     private const string PREF_KEY_LUOT2 = "GoldManager_luot2";
 
-    // state: chỉ true khi manager đang active trong Play scene
     private bool isRunningInPlay = false;
     private Coroutine autoPickCoroutine = null;
 
@@ -90,18 +82,18 @@ public class GoldManager : MonoBehaviour
 
     private void Awake()
     {
-        UnityEngine.Debug.Log($"[GoldManager] Awake on GameObject '{gameObject.name}' in scene '{gameObject.scene.name}'. PlaySceneName='{playSceneName}'");
+        Debug.Log($"[GoldManager] Awake in scene '{SceneManager.GetActiveScene().name}'");
 
         if (SceneManager.GetActiveScene().name != playSceneName)
         {
-            UnityEngine.Debug.LogError($"[GoldManager] Created outside Play scene! Stacktrace:\n{new System.Diagnostics.StackTrace(true)}");
+            Debug.LogWarning($"[GoldManager] Not in Play scene, destroying.");
             DestroyImmediate(this.gameObject);
             return;
         }
 
         if (Instance != null && Instance != this)
         {
-            UnityEngine.Debug.LogWarning("[GoldManager] Another instance exists — destroying duplicate.");
+            Debug.LogWarning("[GoldManager] Duplicate instance, destroying.");
             DestroyImmediate(this.gameObject);
             return;
         }
@@ -111,7 +103,7 @@ public class GoldManager : MonoBehaviour
 
         luot1 = PlayerPrefs.GetInt(PREF_KEY_LUOT1, 0);
         luot2 = PlayerPrefs.GetInt(PREF_KEY_LUOT2, 0);
-        UnityEngine.Debug.Log($"[GoldManager][AWAKE] Loaded luot1={luot1}, luot2={luot2}");
+        Debug.Log($"[GoldManager] Loaded luot1={luot1}, luot2={luot2}");
     }
 
     private void Start()
@@ -122,7 +114,7 @@ public class GoldManager : MonoBehaviour
         luot2++;
         SafeSaveLuot1();
         SafeSaveLuot2();
-        UnityEngine.Debug.Log($"[GoldManager][START] Incremented & saved: luot1={luot1}, luot2={luot2}");
+        Debug.Log($"[GoldManager] Incremented: luot1={luot1}, luot2={luot2}");
 
         if (autoPickOnStart)
             autoPickCoroutine = StartCoroutine(DelayedAutoPick());
@@ -130,66 +122,62 @@ public class GoldManager : MonoBehaviour
 
     private void SaveLuot1()
     {
-        UnityEngine.Debug.LogError($"[GoldManager] Saving luot1={luot1}. Stacktrace:\n{new System.Diagnostics.StackTrace(true)}");
         PlayerPrefs.SetInt(PREF_KEY_LUOT1, luot1);
         PlayerPrefs.Save();
+        Debug.Log($"[GoldManager] Saved luot1={luot1}");
     }
 
     private void SaveLuot2()
     {
-        UnityEngine.Debug.LogError($"[GoldManager] Saving luot2={luot2}. Stacktrace:\n{new System.Diagnostics.StackTrace(true)}");
         PlayerPrefs.SetInt(PREF_KEY_LUOT2, luot2);
         PlayerPrefs.Save();
+        Debug.Log($"[GoldManager] Saved luot2={luot2}");
     }
 
     private void SafeSaveLuot1()
     {
-        if (!isRunningInPlay)
-        {
-            UnityEngine.Debug.LogWarning("[GoldManager] Ignored SaveLuot1 because not in Play scene.");
-            return;
-        }
+        if (!isRunningInPlay) return;
         SaveLuot1();
     }
 
     private void SafeSaveLuot2()
     {
-        if (!isRunningInPlay)
-        {
-            UnityEngine.Debug.LogWarning("[GoldManager] Ignored SaveLuot2 because not in Play scene.");
-            return;
-        }
+        if (!isRunningInPlay) return;
         SaveLuot2();
     }
 
     private void OnActiveSceneChanged(Scene prev, Scene next)
     {
-        UnityEngine.Debug.Log($"[GoldManager] OnActiveSceneChanged: from '{prev.name}' -> '{next.name}'");
+        Debug.Log($"[GoldManager] Scene changed: '{prev.name}' -> '{next.name}'");
         if (next.name != playSceneName && isRunningInPlay)
         {
-            UnityEngine.Debug.Log("[GoldManager] Leaving Play scene -> cleaning up and destroying GoldManager.");
             CleanupAndDestroy();
         }
     }
 
     private void OnSceneUnloaded(Scene scene)
     {
-        UnityEngine.Debug.Log($"[GoldManager] OnSceneUnloaded: '{scene.name}'");
+        Debug.Log($"[GoldManager] Scene unloaded: '{scene.name}'");
         if (scene.name == playSceneName && isRunningInPlay)
         {
-            UnityEngine.Debug.Log("[GoldManager] Play scene unloaded -> cleaning up and destroying GoldManager.");
             CleanupAndDestroy();
         }
     }
 
+    // ===== FIX: CLEANUP SPAWNED PREFABS =====
     private void CleanupAndDestroy()
     {
+        Debug.Log("[GoldManager] CleanupAndDestroy called.");
+
         if (autoPickCoroutine != null)
         {
-            try { StopCoroutine(autoPickCoroutine); } catch { }
+            StopCoroutine(autoPickCoroutine);
             autoPickCoroutine = null;
         }
         StopAllCoroutines();
+
+        // DESTROY ALL SPAWNED PREFABS
+        CleanupSpawnedPrefabs();
 
         pickedGold1 = null;
         pickedGold2 = null;
@@ -197,7 +185,6 @@ public class GoldManager : MonoBehaviour
         idToPickIndex.Clear();
         goldList.Clear();
 
-        // reset flags
         picked1DestroyedFlag = false;
         picked2DestroyedFlag = false;
         picked3DestroyedFlag = false;
@@ -213,6 +200,42 @@ public class GoldManager : MonoBehaviour
 #endif
     }
 
+    // ===== NEW: CLEANUP SPAWNED PREFABS =====
+    private void CleanupSpawnedPrefabs()
+    {
+        Debug.Log($"[GoldManager] Cleaning up {spawnedPrefabs.Count} spawned prefabs.");
+        
+        foreach (var obj in spawnedPrefabs)
+        {
+            if (obj != null)
+            {
+                Debug.Log($"[GoldManager] Destroying spawned prefab: {obj.name}");
+                Destroy(obj);
+            }
+        }
+        spawnedPrefabs.Clear();
+    }
+
+    // ===== NEW: PERIODIC CLEANUP OF NULL REFERENCES =====
+    private void LateUpdate()
+    {
+        if (!isRunningInPlay) return;
+
+        // Clean null golds every 60 frames
+        if (Time.frameCount % 60 == 0)
+        {
+            int before = goldList.Count;
+            goldList.RemoveAll(g => g == null);
+            if (goldList.Count != before)
+            {
+                Debug.Log($"[GoldManager] Cleaned {before - goldList.Count} null golds from list.");
+            }
+
+            // Clean null spawned prefabs
+            spawnedPrefabs.RemoveAll(p => p == null);
+        }
+    }
+
     private IEnumerator DelayedAutoPick()
     {
         if (!isRunningInPlay) yield break;
@@ -221,7 +244,7 @@ public class GoldManager : MonoBehaviour
         if (autoPickDelay > 0f)
             yield return new WaitForSeconds(autoPickDelay);
 
-        UnityEngine.Debug.Log($"[GoldManager] DelayedAutoPick running. gold count={goldList.Count}");
+        Debug.Log($"[GoldManager] DelayedAutoPick: {goldList.Count} golds available");
 
         if (goldList.Count >= 1) RandomPickGold1();
 
@@ -255,7 +278,8 @@ public class GoldManager : MonoBehaviour
         if (Instance == this) Instance = null;
         isRunningInPlay = false;
         StopAllCoroutines();
-        UnityEngine.Debug.Log("[GoldManager] OnDestroy executed.");
+        CleanupSpawnedPrefabs(); // FIX: Cleanup on destroy
+        Debug.Log("[GoldManager] OnDestroy executed.");
     }
 
     public void Register(Gold g)
@@ -267,7 +291,7 @@ public class GoldManager : MonoBehaviour
         {
             g.id = nextID++;
             goldList.Add(g);
-            UnityEngine.Debug.Log($"[GoldManager] Registered Gold id={g.id} name={g.name}");
+            Debug.Log($"[GoldManager] Registered Gold id={g.id} name={g.name}");
         }
     }
 
@@ -275,6 +299,7 @@ public class GoldManager : MonoBehaviour
     {
         if (!isRunningInPlay) return null;
         if (goldList.Count == 0) return null;
+        
         List<Gold> candidates = new List<Gold>();
         foreach (var g in goldList)
         {
@@ -282,6 +307,7 @@ public class GoldManager : MonoBehaviour
             if (excludeIds != null && excludeIds.Contains(g.id)) continue;
             candidates.Add(g);
         }
+        
         if (candidates.Count == 0) return null;
         return candidates[Random.Range(0, candidates.Count)];
     }
@@ -300,14 +326,14 @@ public class GoldManager : MonoBehaviour
         Gold chosen = GetRandomGoldExcluding(exclude);
         if (chosen == null)
         {
-            UnityEngine.Debug.LogWarning("[GoldManager] RandomPickGold1: Không tìm được gold phù hợp!");
+            Debug.LogWarning("[GoldManager] RandomPickGold1: No suitable gold found!");
             pickedGold1 = null;
             return;
         }
 
         pickedGold1 = chosen;
         idToPickIndex[pickedGold1.id] = 1;
-        UnityEngine.Debug.Log($"[GoldManager] PickedGold1 = Gold ID {pickedGold1.id} (instanceID={pickedGold1.GetInstanceID()})");
+        Debug.Log($"[GoldManager] PickedGold1 = Gold ID {pickedGold1.id}");
     }
 
     public void RandomPickGold2()
@@ -323,22 +349,19 @@ public class GoldManager : MonoBehaviour
 
         Gold chosen = GetRandomGoldExcluding(exclude);
 
-        if (chosen == null)
-        {
-            if (goldList.Count > 0) chosen = goldList[Random.Range(0, goldList.Count)];
-            else chosen = null;
-        }
+        if (chosen == null && goldList.Count > 0)
+            chosen = goldList[Random.Range(0, goldList.Count)];
 
         if (chosen == null)
         {
-            UnityEngine.Debug.LogWarning("[GoldManager] RandomPickGold2: Không tìm được gold để pick!");
+            Debug.LogWarning("[GoldManager] RandomPickGold2: No gold to pick!");
             pickedGold2 = null;
             return;
         }
 
         pickedGold2 = chosen;
         idToPickIndex[pickedGold2.id] = 2;
-        UnityEngine.Debug.Log($"[GoldManager] PickedGold2 = Gold ID {pickedGold2.id} (instanceID={pickedGold2.GetInstanceID()})");
+        Debug.Log($"[GoldManager] PickedGold2 = Gold ID {pickedGold2.id}");
     }
 
     public void RandomPickGold3()
@@ -354,220 +377,120 @@ public class GoldManager : MonoBehaviour
 
         Gold chosen = GetRandomGoldExcluding(exclude);
 
-        if (chosen == null)
-        {
-            if (goldList.Count > 0) chosen = goldList[Random.Range(0, goldList.Count)];
-            else chosen = null;
-        }
+        if (chosen == null && goldList.Count > 0)
+            chosen = goldList[Random.Range(0, goldList.Count)];
 
         if (chosen == null)
         {
-            UnityEngine.Debug.LogWarning("[GoldManager] RandomPickGold3: Không tìm được gold để pick!");
+            Debug.LogWarning("[GoldManager] RandomPickGold3: No gold to pick!");
             pickedGold3 = null;
             return;
         }
 
         pickedGold3 = chosen;
         idToPickIndex[pickedGold3.id] = 3;
-        UnityEngine.Debug.Log($"[GoldManager] PickedGold3 = Gold ID {pickedGold3.id} (instanceID={pickedGold3.GetInstanceID()})");
+        Debug.Log($"[GoldManager] PickedGold3 = Gold ID {pickedGold3.id}");
     }
 
     public void OnGoldPicked(Gold gold)
     {
-        if (!isRunningInPlay)
+        if (!isRunningInPlay || gold == null) return;
+
+        Debug.Log($"[GoldManager] OnGoldPicked: Gold id={gold.id}");
+
+        int pickIndex = GetPickIndexForGold(gold.id);
+        
+        if (pickIndex > 0)
         {
-            UnityEngine.Debug.LogWarning("[GoldManager] OnGoldPicked called but manager not running in Play. Ignoring.");
-            return;
-        }
-
-        if (gold == null)
-        {
-            UnityEngine.Debug.LogWarning("[GoldManager] OnGoldPicked(Gold) called with null.");
-            return;
-        }
-
-        UnityEngine.Debug.Log($"[GoldManager] OnGoldPicked(Gold) called. instanceID={gold.GetInstanceID()} id={gold.id}");
-
-        if (pickedGold1 == gold || pickedGold2 == gold || pickedGold3 == gold)
-        {
-            int pickIndex = -1;
-            if (pickedGold1 == gold) pickIndex = 1;
-            else if (pickedGold2 == gold) pickIndex = 2;
-            else if (pickedGold3 == gold) pickIndex = 3;
-
             if (GamePlayScript.instance != null)
             {
                 GamePlayScript.instance.pickGold = true;
-                UnityEngine.Debug.Log($"[GoldManager] OnGoldPicked(Gold) -> matched pickedGold reference. pickGold = true (id={gold.id})");
+                Debug.Log($"[GoldManager] Set pickGold = true (pickIndex={pickIndex})");
             }
 
-            // FIRE EVENTS (UnityEvent + C# event)
-            if (pickIndex != -1)
-            {
-                try
-                {
-                    OnSpecialGoldPicked?.Invoke(pickIndex);
-                }
-                catch (Exception ex)
-                {
-                    UnityEngine.Debug.LogError($"[GoldManager] Exception when invoking OnSpecialGoldPicked: {ex}");
-                }
-
-                try
-                {
-                    OnSpecialGoldPickedEvent?.Invoke(pickIndex);
-                }
-                catch (Exception ex)
-                {
-                    UnityEngine.Debug.LogError($"[GoldManager] Exception when invoking OnSpecialGoldPickedEvent: {ex}");
-                }
-
-                UnityEngine.Debug.Log($"[GoldManager] OnSpecialGoldPicked invoked for pickIndex={pickIndex}");
-            }
-
-            return;
-        }
-
-        if (gold.id >= 0)
-        {
-            OnGoldPicked(gold.id);
-        }
-        else
-        {
-            UnityEngine.Debug.Log($"[GoldManager] OnGoldPicked(Gold): no match by reference and id invalid ({gold.id}).");
+            InvokeSpecialGoldEvents(pickIndex);
         }
     }
 
     public void OnGoldPicked(int id)
     {
-        if (!isRunningInPlay)
-        {
-            UnityEngine.Debug.LogWarning($"[GoldManager] OnGoldPicked(int) called id={id} but manager not running in Play. Ignoring.");
-            return;
-        }
+        if (!isRunningInPlay) return;
 
-        UnityEngine.Debug.Log($"[GoldManager] OnGoldPicked(int) called id={id}. idToPickIndex hasKey={idToPickIndex.ContainsKey(id)}");
+        Debug.Log($"[GoldManager] OnGoldPicked(int): id={id}");
 
-        if (idToPickIndex.TryGetValue(id, out int pickIndex))
+        int pickIndex = GetPickIndexForGold(id);
+
+        if (pickIndex > 0)
         {
-            if (pickIndex == 1 || pickIndex == 2 || pickIndex == 3)
+            if (GamePlayScript.instance != null)
             {
-                if (GamePlayScript.instance != null)
-                {
-                    GamePlayScript.instance.pickGold = true;
-                    UnityEngine.Debug.Log($"[GoldManager] OnGoldPicked: set pickGold = true (via idToPickIndex) id={id} pickIndex={pickIndex}");
-                }
-
-                // FIRE EVENTS
-                try
-                {
-                    OnSpecialGoldPicked?.Invoke(pickIndex);
-                }
-                catch (Exception ex)
-                {
-                    UnityEngine.Debug.LogError($"[GoldManager] Exception when invoking OnSpecialGoldPicked: {ex}");
-                }
-
-                try
-                {
-                    OnSpecialGoldPickedEvent?.Invoke(pickIndex);
-                }
-                catch (Exception ex)
-                {
-                    UnityEngine.Debug.LogError($"[GoldManager] Exception when invoking OnSpecialGoldPickedEvent: {ex}");
-                }
-
-                UnityEngine.Debug.Log($"[GoldManager] OnSpecialGoldPicked invoked for pickIndex={pickIndex} (via idToPickIndex)");
-                return;
+                GamePlayScript.instance.pickGold = true;
+                Debug.Log($"[GoldManager] Set pickGold = true (pickIndex={pickIndex})");
             }
+
+            InvokeSpecialGoldEvents(pickIndex);
         }
-
-        if (pickedGold1 != null && pickedGold1.id == id)
-        {
-            if (GamePlayScript.instance != null) GamePlayScript.instance.pickGold = true;
-            UnityEngine.Debug.Log($"[GoldManager] OnGoldPicked: matched pickedGold1 id={id} -> pickGold = true");
-
-            try { OnSpecialGoldPicked?.Invoke(1); } catch (Exception ex) { UnityEngine.Debug.LogError(ex.ToString()); }
-            try { OnSpecialGoldPickedEvent?.Invoke(1); } catch (Exception ex) { UnityEngine.Debug.LogError(ex.ToString()); }
-
-            return;
-        }
-        if (pickedGold2 != null && pickedGold2.id == id)
-        {
-            if (GamePlayScript.instance != null) GamePlayScript.instance.pickGold = true;
-            UnityEngine.Debug.Log($"[GoldManager] OnGoldPicked: matched pickedGold2 id={id} -> pickGold = true");
-
-            try { OnSpecialGoldPicked?.Invoke(2); } catch (Exception ex) { UnityEngine.Debug.LogError(ex.ToString()); }
-            try { OnSpecialGoldPickedEvent?.Invoke(2); } catch (Exception ex) { UnityEngine.Debug.LogError(ex.ToString()); }
-
-            return;
-        }
-        if (pickedGold3 != null && pickedGold3.id == id)
-        {
-            if (GamePlayScript.instance != null) GamePlayScript.instance.pickGold = true;
-            UnityEngine.Debug.Log($"[GoldManager] OnGoldPicked: matched pickedGold3 id={id} -> pickGold = true");
-
-            try { OnSpecialGoldPicked?.Invoke(3); } catch (Exception ex) { UnityEngine.Debug.LogError(ex.ToString()); }
-            try { OnSpecialGoldPickedEvent?.Invoke(3); } catch (Exception ex) { UnityEngine.Debug.LogError(ex.ToString()); }
-
-            return;
-        }
-
-        UnityEngine.Debug.Log($"[GoldManager] OnGoldPicked: id={id} is NOT one of picked special golds (no flag).");
     }
 
-    // When a gold is destroyed, if it was one of the picked ones we:
-    // - remove it from lists/maps
-    // - set the corresponding pickedXDestroyedFlag = true so VictoryController can respond
-    // - spawn replacement prefab if configured (existing logic)
-    public void OnGoldDestroyed(int id, Vector3 posUnused)
+    // ===== NEW: HELPER TO GET PICK INDEX =====
+    private int GetPickIndexForGold(int goldId)
     {
-        if (!isRunningInPlay)
+        if (idToPickIndex.TryGetValue(goldId, out int idx)) return idx;
+        if (pickedGold1 != null && pickedGold1.id == goldId) return 1;
+        if (pickedGold2 != null && pickedGold2.id == goldId) return 2;
+        if (pickedGold3 != null && pickedGold3.id == goldId) return 3;
+        return -1;
+    }
+
+    // ===== NEW: SAFE EVENT INVOCATION =====
+    private void InvokeSpecialGoldEvents(int pickIndex)
+    {
+        try
         {
-            UnityEngine.Debug.LogWarning($"[GoldManager] OnGoldDestroyed called id={id} but manager not running in Play. Ignoring. ActiveScene='{SceneManager.GetActiveScene().name}'");
-            return;
+            OnSpecialGoldPicked?.Invoke(pickIndex);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[GoldManager] Exception in OnSpecialGoldPicked: {ex}");
         }
 
-        UnityEngine.Debug.Log($"[GoldManager] OnGoldDestroyed START id={id} | idToPickIndex keys: {string.Join(",", idToPickIndex.Keys)} | goldList.count={goldList.Count}");
+        try
+        {
+            OnSpecialGoldPickedEvent?.Invoke(pickIndex);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[GoldManager] Exception in OnSpecialGoldPickedEvent: {ex}");
+        }
+
+        Debug.Log($"[GoldManager] OnSpecialGoldPicked invoked for pickIndex={pickIndex}");
+    }
+
+    // ===== FIXED: TRACK SPAWNED PREFABS =====
+    public void OnGoldDestroyed(int id, Vector3 posUnused)
+    {
+        if (!isRunningInPlay) return;
+
+        Debug.Log($"[GoldManager] OnGoldDestroyed: id={id}");
 
         Gold gold = goldList.Find(g => g != null && g.id == id);
         if (gold != null)
         {
             goldList.Remove(gold);
-            UnityEngine.Debug.Log($"[GoldManager] Removed gold from goldList id={id} name={gold.name} instanceID={gold.GetInstanceID()}");
+            Debug.Log($"[GoldManager] Removed gold id={id} from goldList");
         }
-        else
+
+        int pickIndex = GetPickIndexForGold(id);
+
+        if (pickIndex <= 0)
         {
-            UnityEngine.Debug.Log($"[GoldManager] goldList did not contain id={id}");
+            Debug.Log($"[GoldManager] id={id} is not a special gold, no spawn.");
+            return;
         }
 
-        int pickIndex = -1;
-        bool hadMap = idToPickIndex.TryGetValue(id, out pickIndex);
+        idToPickIndex.Remove(id);
 
-        if (!hadMap)
-        {
-            UnityEngine.Debug.Log($"[GoldManager] id={id} not found in idToPickIndex. Checking pickedGold references...");
-
-            if (pickedGold1 != null) UnityEngine.Debug.Log($"pickedGold1 id={pickedGold1.id} instanceID={pickedGold1.GetInstanceID()}");
-            if (pickedGold2 != null) UnityEngine.Debug.Log($"pickedGold2 id={pickedGold2.id} instanceID={pickedGold2.GetInstanceID()}");
-            if (pickedGold3 != null) UnityEngine.Debug.Log($"pickedGold3 id={pickedGold3.id} instanceID={pickedGold3.GetInstanceID()}");
-
-            if (pickedGold1 != null && pickedGold1.id == id) { pickIndex = 1; UnityEngine.Debug.Log("[GoldManager] matched pickedGold1"); }
-            else if (pickedGold2 != null && pickedGold2.id == id) { pickIndex = 2; UnityEngine.Debug.Log("[GoldManager] matched pickedGold2"); }
-            else if (pickedGold3 != null && pickedGold3.id == id) { pickIndex = 3; UnityEngine.Debug.Log("[GoldManager] matched pickedGold3"); }
-            else
-            {
-                UnityEngine.Debug.Log($"[GoldManager] OnGoldDestroyed: id={id} not mapped and not matched pickedGolds -> treat as normal destroy (no special spawn).");
-                return;
-            }
-        }
-        else
-        {
-            idToPickIndex.Remove(id);
-            UnityEngine.Debug.Log($"[GoldManager] id={id} found in idToPickIndex with pickIndex={pickIndex}. Removed mapping.");
-        }
-
-        // Set the destroyed-flag so other systems (VictoryController) can react.
+        // Set destroyed flags
         if (pickIndex == 1) picked1DestroyedFlag = true;
         else if (pickIndex == 2) picked2DestroyedFlag = true;
         else if (pickIndex == 3) picked3DestroyedFlag = true;
@@ -597,17 +520,18 @@ public class GoldManager : MonoBehaviour
 
         if (prefabToSpawn == null)
         {
-            UnityEngine.Debug.LogWarning($"[GoldManager] prefabToSpawn is null for id={id}, pickIndex={pickIndex}. No spawn will occur.");
+            Debug.LogWarning($"[GoldManager] No prefab to spawn for pickIndex={pickIndex}");
             return;
         }
 
+        // Validate spawn point scene
         if (spawnPoint != null)
         {
             Scene spawnScene = spawnPoint.gameObject.scene;
             Scene active = SceneManager.GetActiveScene();
             if (spawnScene != active)
             {
-                UnityEngine.Debug.Log($"[GoldManager] Skipping spawn because spawnPoint is in scene '{spawnScene.name}' but active scene is '{active.name}'.");
+                Debug.LogWarning($"[GoldManager] Skipping spawn - spawnPoint in wrong scene '{spawnScene.name}'");
                 return;
             }
         }
@@ -616,42 +540,47 @@ public class GoldManager : MonoBehaviour
         Quaternion spawnRot = spawnPoint != null ? spawnPoint.rotation : Quaternion.identity;
 
         GameObject spawned = null;
-        try { spawned = Instantiate(prefabToSpawn, spawnPos, spawnRot); }
-        catch (System.Exception ex) { UnityEngine.Debug.LogError($"[GoldManager] Exception when Instantiate prefab: {ex}"); spawned = null; }
+        try
+        {
+            spawned = Instantiate(prefabToSpawn, spawnPos, spawnRot);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[GoldManager] Exception when spawning prefab: {ex}");
+            return;
+        }
 
         if (spawned != null)
         {
-            UnityEngine.Debug.Log($"[GoldManager] Spawned prefab for pickIndex={pickIndex}: {prefabToSpawn.name} at pos {spawnPos}. Stacktrace:\n{new System.Diagnostics.StackTrace(true)}");
+            // ===== FIX: TRACK SPAWNED PREFAB =====
+            spawnedPrefabs.Add(spawned);
+            Debug.Log($"[GoldManager] ✓ Spawned prefab '{spawned.name}' at {spawnPos} (tracked)");
+
             Animator anim = spawned.GetComponent<Animator>();
             if (anim != null)
             {
-                try { anim.SetTrigger("Happy"); }
-                catch { }
+                try { anim.SetTrigger("Happy"); } catch { }
             }
 
-            // Reset luot logic nếu spawn trúng PrefabPickedGold2/3
+            // Reset luot logic
             if (pickIndex == 2 && prefabToSpawn == PrefabPickedGold2)
             {
                 luot1 = 0;
                 SafeSaveLuot1();
-                UnityEngine.Debug.Log($"[GoldManager] Reset luot1 -> 0 (spawned PrefabPickedGold2).");
+                Debug.Log("[GoldManager] Reset luot1 to 0");
             }
             else if (pickIndex == 3 && prefabToSpawn == PrefabPickedGold3)
             {
                 luot2 = 0;
                 SafeSaveLuot2();
-                UnityEngine.Debug.Log($"[GoldManager] Reset luot2 -> 0 (spawned PrefabPickedGold3).");
+                Debug.Log("[GoldManager] Reset luot2 to 0");
             }
-        }
-        else
-        {
-            UnityEngine.Debug.LogWarning($"[GoldManager] Instantiate returned null for pickIndex={pickIndex}. Not resetting luot.");
         }
 
         if (OngGiaScript.instance != null)
         {
             OngGiaScript.instance.Happy();
-            UnityEngine.Debug.Log("[GoldManager] Called OngGiaScript.instance.Happy()");
+            Debug.Log("[GoldManager] Called OngGiaScript.instance.Happy()");
         }
     }
 
@@ -662,32 +591,32 @@ public class GoldManager : MonoBehaviour
         pickedGold2 = null;
         pickedGold3 = null;
         idToPickIndex.Clear();
-        luot1 = 0; luot2 = 0;
+        luot1 = 0;
+        luot2 = 0;
         picked1DestroyedFlag = false;
         picked2DestroyedFlag = false;
         picked3DestroyedFlag = false;
+        CleanupSpawnedPrefabs();
         SaveLuot1();
         SaveLuot2();
-        UnityEngine.Debug.Log("[GoldManager] OnEditorClearPicked: reset luot1/luot2 to 0 and cleared flags");
+        Debug.Log("[GoldManager] Editor: Reset all data and cleaned spawned prefabs");
     }
 #endif
 
     [ContextMenu("Debug_PrintLuot")]
     private void Debug_PrintLuot()
     {
-        UnityEngine.Debug.Log($"[GoldManager][Debug] luot1={luot1}, luot2={luot2} | flags: p1={picked1DestroyedFlag} p2={picked2DestroyedFlag} p3={picked3DestroyedFlag}");
+        Debug.Log($"[GoldManager] luot1={luot1}, luot2={luot2} | flags: p1={picked1DestroyedFlag} p2={picked2DestroyedFlag} p3={picked3DestroyedFlag} | spawned: {spawnedPrefabs.Count}");
     }
 
-    // Public helper: reset destroyed-flags (call from UI or other scripts if needed)
     public void ResetPickedDestroyedFlags()
     {
         picked1DestroyedFlag = false;
         picked2DestroyedFlag = false;
         picked3DestroyedFlag = false;
-        UnityEngine.Debug.Log("[GoldManager] ResetPickedDestroyedFlags called.");
+        Debug.Log("[GoldManager] ResetPickedDestroyedFlags called.");
     }
 }
 
-// Helper class so Unity inspector có thể hiển thị UnityEvent<int>
 [Serializable]
 public class UnityEventInt : UnityEvent<int> { }
