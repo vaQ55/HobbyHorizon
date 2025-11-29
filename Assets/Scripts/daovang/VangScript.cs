@@ -10,16 +10,12 @@ public class VangScript : MonoBehaviour {
     Vector3 position;
     public Animator anim;
 
-    // Use this for initialization
     void Start () {
         isMoveFollow = false;
         StartCoroutine(RunEffect());
     }
 
-    // Update is called once per frame
-    void Update () {
-        // (không cần thay đổi ở đây)
-    }
+    void Update () { }
 
     IEnumerator RunEffect()
     {
@@ -71,56 +67,53 @@ public class VangScript : MonoBehaviour {
                                                 target.position.y - gameObject.GetComponent<Collider2D>().bounds.size.y / 3,
                                                 transform.position.z);
             if (GameObject.Find("dayCau").GetComponent<DayCauScript>().typeAction == TypeAction.Nghi) {
-                // play sound based on value
-                if(score > 0 && score <= 150)
-                {
-                    GamePlayScript.instance.PlaySound(1);
-                }
-                else if( score >150 && score <= 400)
-                {
-                    GamePlayScript.instance.PlaySound(2);
-                }
-                else
-                {
-                    GamePlayScript.instance.PlaySound(3);
-                }
+                if(score > 0 && score <= 150) GamePlayScript.instance.PlaySound(1);
+                else if(score >150 && score <= 400) GamePlayScript.instance.PlaySound(2);
+                else GamePlayScript.instance.PlaySound(3);
 
-                // increase score
                 if (gameObject.tag == "Stone")
                 {
                     if (CGameManager.instance.bookStone)
                     {
-                        GameObject.Find("GamePlay").GetComponent<GamePlayScript>().score += this.score * 3;
-                        GameObject.Find("GamePlay").GetComponent<GamePlayScript>().CreateScoreFly(this.score * 3);
+                        GamePlayScript.instance.score += this.score * 3;
+                        GamePlayScript.instance.CreateScoreFly(this.score * 3);
                     }
                     else
                     {
-                        GameObject.Find("GamePlay").GetComponent<GamePlayScript>().score += this.score;
-                        GameObject.Find("GamePlay").GetComponent<GamePlayScript>().CreateScoreFly(this.score);
+                        GamePlayScript.instance.score += this.score;
+                        GamePlayScript.instance.CreateScoreFly(this.score);
                         OngGiaScript.instance.Angry();
                     }
                 }
                 else if (gameObject.tag == "Diamond" && CGameManager.instance.diamond)
                 {
-                    GameObject.Find("GamePlay").GetComponent<GamePlayScript>().score += this.score  +100;
-                    GameObject.Find("GamePlay").GetComponent<GamePlayScript>().CreateScoreFly(this.score + 100);
+                    GamePlayScript.instance.score += this.score  +100;
+                    GamePlayScript.instance.CreateScoreFly(this.score + 100);
                 }
                 else
                 {
-                    GameObject.Find("GamePlay").GetComponent<GamePlayScript>().score += this.score;
-                    GameObject.Find("GamePlay").GetComponent<GamePlayScript>().CreateScoreFly(this.score);
+                    GamePlayScript.instance.score += this.score;
+                    GamePlayScript.instance.CreateScoreFly(this.score);
                 }
 
-                // NEW: nếu là vàng (tag == "Gold") thì báo với GamePlayScript
                 if (gameObject.tag == "Gold")
                 {
-                    if (GamePlayScript.instance != null)
+                    Gold goldComp = GetComponent<Gold>();
+                    if (goldComp != null)
                     {
-                        GamePlayScript.instance.OnGoldCollected();
+                        goldComp.NotifyPicked();
+                    }
+                    else
+                    {
+                        Debug.LogWarning("VangScript: tag is Gold but no Gold component found. Falling back to direct call.");
+                        if (GamePlayScript.instance != null) GamePlayScript.instance.OnGoldCollected();
+                        Destroy(gameObject);
                     }
                 }
-
-                Destroy(gameObject);
+                else
+                {
+                    Destroy(gameObject);
+                }
             }
         }
     }
