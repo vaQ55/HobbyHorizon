@@ -258,12 +258,12 @@ public class GamePlayScript : MonoBehaviour {
         }
     }
 
-    public void CreateScoreFly(int score)
-    {
-        Vector3 vector3 = scoreTextFly.transform.position;
-        Instantiate(scoreTextFly, vector3, Quaternion.identity).transform.SetParent(canvas, false);
-        TextScoreScript.score = score;
-    }
+    // public void CreateScoreFly(int score)
+    // {
+    //     Vector3 vector3 = scoreTextFly.transform.position;
+    //     Instantiate(scoreTextFly, vector3, Quaternion.identity).transform.SetParent(canvas, false);
+    //     // TextScoreScript.score = score;
+    // }
 
     public void ScoreZoomEffect()
     {

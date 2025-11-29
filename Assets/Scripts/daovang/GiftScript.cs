@@ -64,7 +64,7 @@ public class GiftScript : MonoBehaviour {
                         case 2:
                             int score = Random.RandomRange(300, 400);
                             GameObject.Find("GamePlay").GetComponent<GamePlayScript>().score += score;
-                            GameObject.Find("GamePlay").GetComponent<GamePlayScript>().CreateScoreFly(score);
+                            // GameObject.Find("GamePlay").GetComponent<GamePlayScript>().CreateScoreFly(score);
                             break;
                         case 3:
                             GamePlayScript.instance.CreateBoomFly();
@@ -83,7 +83,7 @@ public class GiftScript : MonoBehaviour {
                         case 1:
                             int score = Random.RandomRange(50, 150);
                             GameObject.Find("GamePlay").GetComponent<GamePlayScript>().score += score;
-                            GameObject.Find("GamePlay").GetComponent<GamePlayScript>().CreateScoreFly(score);
+                            // GameObject.Find("GamePlay").GetComponent<GamePlayScript>().CreateScoreFly(score);
                             break;
                         case 2:
                             GamePlayScript.instance.CreateBoomFly();
@@ -97,12 +97,12 @@ public class GiftScript : MonoBehaviour {
                         case 6:
                             int score6 = Random.RandomRange(50, 150);
                             GameObject.Find("GamePlay").GetComponent<GamePlayScript>().score += score6;
-                            GameObject.Find("GamePlay").GetComponent<GamePlayScript>().CreateScoreFly(score6);
+                            // GameObject.Find("GamePlay").GetComponent<GamePlayScript>().CreateScoreFly(score6);
                             break;
                         case 7:
                             int score7 = Random.RandomRange(50, 150);
                             GameObject.Find("GamePlay").GetComponent<GamePlayScript>().score += score7;
-                            GameObject.Find("GamePlay").GetComponent<GamePlayScript>().CreateScoreFly(score7);
+                            // GameObject.Find("GamePlay").GetComponent<GamePlayScript>().CreateScoreFly(score7);
                             break;
 
                     }

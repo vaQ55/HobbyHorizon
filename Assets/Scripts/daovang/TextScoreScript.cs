@@ -7,9 +7,9 @@ public class TextScoreScript : MonoBehaviour {
 
     //private float xEnd = -500, yEnd = 340;
     Vector3 position, scale;
-    public Text txtScore;
-    public static int score;
-    public GameObject endFly;
+    // public Text txtScore;
+    // public static int score;
+    // public GameObject endFly;
 	// Use this for initialization
 	void Start () {
         position = transform.localPosition;
@@ -20,7 +20,7 @@ public class TextScoreScript : MonoBehaviour {
 	
 	// Update is called once per frame
 	void Update () {
-        txtScore.text = "$"+ score.ToString();
+        // txtScore.text = "$"+ score.ToString();
         TextMove();
         
         

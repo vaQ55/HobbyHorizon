@@ -81,7 +81,7 @@ public class ChuotScript : MonoBehaviour {
             if (GameObject.Find("dayCau").GetComponent<DayCauScript>().typeAction == TypeAction.Nghi)
             {
                 GameObject.Find("GamePlay").GetComponent<GamePlayScript>().score += this.score;
-                GameObject.Find("GamePlay").GetComponent<GamePlayScript>().CreateScoreFly(this.score);
+                // GameObject.Find("GamePlay").GetComponent<GamePlayScript>().CreateScoreFly(this.score);
                 Destroy(gameObject);
             }
         }

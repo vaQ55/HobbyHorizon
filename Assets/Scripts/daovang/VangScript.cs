@@ -76,24 +76,24 @@ public class VangScript : MonoBehaviour {
                     if (CGameManager.instance.bookStone)
                     {
                         GamePlayScript.instance.score += this.score * 3;
-                        GamePlayScript.instance.CreateScoreFly(this.score * 3);
+                        // GamePlayScript.instance.CreateScoreFly(this.score * 3);
                     }
                     else
                     {
                         GamePlayScript.instance.score += this.score;
-                        GamePlayScript.instance.CreateScoreFly(this.score);
+                        // GamePlayScript.instance.CreateScoreFly(this.score);
                         OngGiaScript.instance.Angry();
                     }
                 }
                 else if (gameObject.tag == "Diamond" && CGameManager.instance.diamond)
                 {
                     GamePlayScript.instance.score += this.score  +100;
-                    GamePlayScript.instance.CreateScoreFly(this.score + 100);
+                    // GamePlayScript.instance.CreateScoreFly(this.score + 100);
                 }
                 else
                 {
                     GamePlayScript.instance.score += this.score;
-                    GamePlayScript.instance.CreateScoreFly(this.score);
+                    // GamePlayScript.instance.CreateScoreFly(this.score);
                 }
 
                 if (gameObject.tag == "Gold")
